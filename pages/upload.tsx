@@ -101,15 +101,21 @@ export default function Upload() {
           setUploading(false);
           
           // Start processing the report with AI using the API route
-          fetch('/api/process-report', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ reportId: reportRef.id }),
-          }).catch((err: Error) => {
-            console.error('Error processing report:', err);
-          });
+          try {
+            await fetch('/api/process-report', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ reportId: reportRef.id }),
+            });
+            
+            console.log('Processing started for report:', reportRef.id);
+          } catch (err) {
+            console.error('Error initiating report processing:', err);
+            // Continue with redirect even if processing request fails
+            // The user will see the processing status on the report page
+          }
           
           // Redirect to reports page after 2 seconds
           setTimeout(() => {
