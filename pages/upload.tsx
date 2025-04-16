@@ -5,6 +5,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { storage, db } from '@/lib/firebase';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { processReportWithAI } from '@/lib/reportProcessing';
 
 export default function Upload() {
   const [file, setFile] = useState<File | null>(null);
@@ -100,22 +101,10 @@ export default function Upload() {
           setSuccess(true);
           setUploading(false);
           
-          // Start processing the report with AI using the API route
-          try {
-            await fetch('/api/process-report', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ reportId: reportRef.id }),
-            });
-            
-            console.log('Processing started for report:', reportRef.id);
-          } catch (err) {
-            console.error('Error initiating report processing:', err);
-            // Continue with redirect even if processing request fails
-            // The user will see the processing status on the report page
-          }
+          // Start processing the report with AI
+          processReportWithAI(reportRef.id).catch(err => {
+            console.error('Error processing report:', err);
+          });
           
           // Redirect to reports page after 2 seconds
           setTimeout(() => {

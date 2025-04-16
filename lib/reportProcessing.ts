@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
-// We'll use dynamic import for pdf-parse to avoid client-side issues
+import pdfParse from 'pdf-parse';
 
 // Interface for the report data structure
 interface ReportData {
@@ -98,22 +98,21 @@ export async function processReportWithAI(reportId: string): Promise<boolean> {
     const processedData = await processLargePdfWithClaudeAI(pdfText, year, libraryName);
     
     // 6. Combine with library data and create final report data
-    const mockData = generateMockReportData(year);
     const finalReportData: ReportData = {
       reportId,
       libraryName,
       year,
-      libraryOverview: processedData.libraryOverview || mockData.libraryOverview!,
-      collectionOverview: processedData.collectionOverview || mockData.collectionOverview!,
-      usageStatistics: processedData.usageStatistics || mockData.usageStatistics!,
-      collectionData: processedData.collectionData || mockData.collectionData!,
-      circulationData: processedData.circulationData || mockData.circulationData!,
-      revenueData: processedData.revenueData || mockData.revenueData!,
-      expenseData: processedData.expenseData || mockData.expenseData!,
-      programData: processedData.programData || mockData.programData!,
-      venueData: processedData.venueData || mockData.venueData!,
-      summerReadingData: processedData.summerReadingData || mockData.summerReadingData!,
-      keyFindings: processedData.keyFindings || mockData.keyFindings!,
+      libraryOverview: processedData.libraryOverview!,
+      collectionOverview: processedData.collectionOverview!,
+      usageStatistics: processedData.usageStatistics!,
+      collectionData: processedData.collectionData!,
+      circulationData: processedData.circulationData!,
+      revenueData: processedData.revenueData!,
+      expenseData: processedData.expenseData!,
+      programData: processedData.programData!,
+      venueData: processedData.venueData!,
+      summerReadingData: processedData.summerReadingData!,
+      keyFindings: processedData.keyFindings!,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -152,11 +151,6 @@ export async function processReportWithAI(reportId: string): Promise<boolean> {
  */
 async function downloadAndExtractPdfText(pdfUrl: string): Promise<string> {
   try {
-    // Check if we're running on the server side
-    if (typeof window !== 'undefined') {
-      throw new Error('PDF processing can only be done on the server side');
-    }
-
     // Download the PDF
     const response = await fetch(pdfUrl);
     if (!response.ok) {
@@ -165,9 +159,6 @@ async function downloadAndExtractPdfText(pdfUrl: string): Promise<string> {
     
     // Convert to ArrayBuffer
     const pdfBuffer = await response.arrayBuffer();
-    
-    // Dynamically import pdf-parse (only works on server side)
-    const pdfParse = (await import('pdf-parse')).default;
     
     // Extract text using pdf-parse
     const data = await pdfParse(Buffer.from(pdfBuffer));

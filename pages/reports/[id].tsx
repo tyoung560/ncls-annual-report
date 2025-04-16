@@ -17,7 +17,6 @@ interface Report {
   status: 'Processing' | 'Completed' | 'Failed';
   isShared: boolean;
   pdfPath: string;
-  errorMessage?: string;
   createdAt: any;
 }
 
@@ -63,7 +62,6 @@ export default function ReportDetail() {
   const [error, setError] = useState('');
   const [updating, setUpdating] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [polling, setPolling] = useState(false);
   const router = useRouter();
   const { id } = router.query;
   const { user, userProfile } = useAuth();
@@ -108,13 +106,6 @@ export default function ReportDetail() {
           } as ReportData);
         }
         
-        // Start polling if the report is in processing state
-        if (reportData.status === 'Processing') {
-          setPolling(true);
-        } else {
-          setPolling(false);
-        }
-        
         setLoading(false);
       } catch (err: any) {
         console.error('Error fetching report:', err);
@@ -125,77 +116,6 @@ export default function ReportDetail() {
 
     fetchReport();
   }, [id, user, userProfile]);
-  
-  // Set up polling for report status updates
-  useEffect(() => {
-    if (!polling || !report?.id) return;
-    
-    const pollInterval = 5000; // 5 seconds
-    let timeoutId: NodeJS.Timeout;
-    
-    const checkStatus = async () => {
-      try {
-        const response = await fetch(`/api/report-status?reportId=${report.id}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch report status');
-        }
-        
-        const data = await response.json();
-        
-        // If status has changed, refresh the report
-        if (data.status !== report.status) {
-          // Fetch report
-          const reportDoc = await getDoc(doc(db, 'reports', report.id));
-          
-          if (reportDoc.exists()) {
-            const updatedReport = {
-              id: reportDoc.id,
-              ...reportDoc.data()
-            } as Report;
-            
-            setReport(updatedReport);
-            
-            // If status is completed, fetch report data
-            if (updatedReport.status === 'Completed') {
-              const reportDataDoc = await getDoc(doc(db, 'reportData', report.id));
-              
-              if (reportDataDoc.exists()) {
-                setReportData({
-                  id: reportDataDoc.id,
-                  ...reportDataDoc.data()
-                } as ReportData);
-              }
-              
-              // Stop polling
-              setPolling(false);
-              return;
-            }
-            
-            // If status is failed, stop polling
-            if (updatedReport.status === 'Failed') {
-              setPolling(false);
-              return;
-            }
-          }
-        }
-        
-        // Continue polling
-        timeoutId = setTimeout(checkStatus, pollInterval);
-      } catch (err) {
-        console.error('Error polling report status:', err);
-        // Continue polling even if there's an error
-        timeoutId = setTimeout(checkStatus, pollInterval);
-      }
-    };
-    
-    // Start polling
-    timeoutId = setTimeout(checkStatus, pollInterval);
-    
-    // Clean up on unmount
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [polling, report?.id, report?.status]);
 
   const handleGenerateDashboard = async () => {
     if (!report) return;
@@ -351,33 +271,21 @@ export default function ReportDetail() {
             <div className="card p-8">
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-6">
                 <h2 className="text-xl font-semibold mb-2">Processing Failed</h2>
-                <p className="mb-2">
+                <p>
                   There was an error processing your report. Please try again or contact support.
                 </p>
-                {report.errorMessage && (
-                  <div className="mt-2 p-3 bg-red-100 rounded text-sm font-mono overflow-auto">
-                    <strong>Error details:</strong> {report.errorMessage}
-                  </div>
-                )}
               </div>
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-gray-600">
-                    If this error persists, please try uploading a different PDF file or contact support.
-                  </p>
-                </div>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={handleGenerateDashboard}
-                    disabled={processing}
-                    className="btn btn-primary"
-                  >
-                    {processing ? 'Processing...' : 'Try Again'}
-                  </button>
-                  <Link href="/upload" className="btn btn-secondary">
-                    Upload New Report
-                  </Link>
-                </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleGenerateDashboard}
+                  disabled={processing}
+                  className="btn btn-primary"
+                >
+                  {processing ? 'Processing...' : 'Try Again'}
+                </button>
+                <Link href="/upload" className="btn btn-secondary">
+                  Upload New Report
+                </Link>
               </div>
             </div>
           ) : !reportData ? (
